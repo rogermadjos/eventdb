@@ -1,5 +1,10 @@
 import {EventEmitter} from 'events';
 import _ from 'lodash';
+import debug from 'debug';
+
+const loggers = {
+  entity: debug('eventdb:entity')
+};
 
 export class Entity extends EventEmitter {
 
@@ -8,22 +13,28 @@ export class Entity extends EventEmitter {
    * @param {object} initialState
    * @param {object} reducers
    * @param {object} options
+   * @param {object} options.adapter
    */
-  constructor(initialState, reducers) {
+  constructor(initialState, reducers, options) {
     super();
 
-    _.merge( this, {initialState, reducers, options} );
+    this._reducers = reducers;
+    this._events = [];
+    this._initialState = initialState;
 
-    this.events = [];
+    _.merge(this, initialState || {});
+  }
+
+  digest() {
   }
 
   /**
    * Get current state
    */
   getState() {
-    return _.reduce(this.events, (accum, event) => {
-      return this.reducers[ event.type ](accum, event);
-    }, _.deepClone(this.initialState));
+    return _.reduce(this._events, (accum, event) => {
+      return this._reducers[ event.type ](accum, event);
+    }, _.deepClone(this._initialState));
   }
 
   /**
@@ -31,12 +42,15 @@ export class Entity extends EventEmitter {
    * @param {object} event
    */
   dispatch(event) {
-    let reducer = this.reducers[ event.type ];
+    loggers.entity('dispatch', event);
+
+    let reducer = this._reducers[ event.type ];
 
     if (!reducer) {
-      throw new Error('Reduce does not exist for event ' + event.type);
+      throw new Error('Reducer does not exist for event ' + event.type);
     }
 
     this.events.push(event);
+    this.emit('dispatch', event);
   }
 }
